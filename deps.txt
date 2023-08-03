@@ -1,0 +1,194 @@
+Tổ chức thư mục :
+    cmd/        : chứa các tệp mã nguồn chính của ứng dụng.
+    internal/   : chứa các gói được sử dụng bởi ứng dụng và không được sử dụng bởi bên ngoài.
+    pkg/        : chứa các gói được sử dụng bởi nhiều ứng dụng khác nhau.
+    vendor/     : chứa các thư viện bên thứ ba được sử dụng trong dự án.
+    go.mod      : chứa các thông tin về các module được sử dụng trong dự án.
+    go.sum      : chứa các thông tin về các phiên bản của các module được sử dụng.
+    README.md   : chứa hướng dẫn sử dụng cho dự án.
+    LICENSE     : chứa các thông tin về giấy phép sử dụng cho dự án.
+
+
+
+
+
+
+
+
+
+
+
+    ---------------------
+
+    package main
+
+import (
+    "context"
+    "log"
+    "net/http"
+
+    "github.com/gin-gonic/gin"
+    "go.mongodb.org/mongo-driver/bson"
+    "go.mongodb.org/mongo-driver/bson/primitive"
+    "go.mongodb.org/mongo-driver/mongo"
+)
+
+type Cart struct {
+    _id        primitive.ObjectID `bson:"_id,omitempty"`
+    Products   []Product          `bson:"products"`
+    Voucher    Voucher            `bson:"voucher"`
+    TotalPrice float64            `bson:"total_price"`
+}
+
+type Product struct {
+    Name     string  `bson:"name"`
+    Price    float64 `bson:"price"`
+    Image    string  `bson:"image"`
+    Quantity int     `bson:"quantity"`
+}
+
+type Voucher struct {
+    Code     string  `bson:"code"`
+    Discount float64 `bson:"discount"`
+}
+
+func main() {
+    // Khởi tạo router của Gin
+    r := gin.Default()
+
+    // Định nghĩa API thêm một đối tượng Cart vào collection
+    r.POST("/carts", func(c *gin.Context) {
+        var cart Cart
+        if err := c.ShouldBindJSON(&cart); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
+
+        cart._id = primitive.NewObjectID()
+
+        _, err := collection.InsertOne(context.Background(), cart)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        c.JSON(http.StatusCreated, gin.H{"data": cart})
+    })
+
+    // Định nghĩa API lấy ra tất cả các đối tượng Cart trong collection
+    r.GET("/carts", func(c *gin.Context) {
+        var carts []Cart
+
+        cursor, err := collection.Find(context.Background(), bson.M{})
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        defer cursor.Close(context.Background())
+
+        for cursor.Next(context.Background()) {
+            var cart Cart
+            if err := cursor.Decode(&cart); err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+            }
+
+            carts = append(carts, cart)
+        }
+
+        if err := cursor.Err(); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"data": carts})
+    })
+
+    // Định nghĩa API lấy ra một đối tượng Cart dựa trên ID
+    r.GET("/carts/:id", func(c *gin.Context) {
+        id := c.Param("id")
+
+        objectId, err := primitive.ObjectIDFromHex(id)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
+
+        var cart Cart
+        err = collection.FindOne(context.Background(), bson.M{"_id": objectId}).Decode(&cart)
+        if err != nil {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Cart not found"})
+            return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"data": cart})
+    })
+
+    // Định nghĩa API cập nhật một đối tượng Cart dựa trên ID
+    r.PUT("/carts/:id", func(c *gin.Context) {
+        id := c.Param("id")
+
+        objectId, err := primitive.ObjectIDFromHex(id)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
+
+        var cart Cart
+        if err := c.ShouldBindJSON(&cart); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
+
+        update := bson.M{
+            "$set": bson.M{
+                "products":    cart.Products,
+                "voucher":     cart.Voucher,
+                "total_price": cart.TotalPrice,
+            },
+        }
+
+        result, err := collection.UpdateOne(context.Background(), bson.M{"_id": objectId}, update)
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        if result.ModifiedCount == 0 {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Cart not found"})
+            return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"data": cart})
+    })
+
+    // Định nghĩa API xóa một đối tượng Cart dựa trên ID
+    r.DELETE("/carts/:id", func(c *gin.Context) {
+        id := c.Param("id")
+
+        objectId, err := primitive.ObjectIDFromHex(id)
+        if err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
+
+        result, err := collection.DeleteOne(context.Background(), bson.M{"_id": objectId})
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+
+        if result.DeletedCount == 0 {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Cart not found"})
+            return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"message": "Cart deleted"})
+    })
+
+    // Chạy server
+    if err := r.Run(":8080"); err != nil {
+        log.Fatal(err)
+    }
+}
