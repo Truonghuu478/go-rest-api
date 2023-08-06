@@ -45,7 +45,8 @@ func main() {
 		// In kết quả
 
 		ctx.JSON(200, gin.H{
-			"data": decoder,
+			"data":   results,
+			"status": 200,
 		})
 	})
 	router.Run("localhost:6000")
