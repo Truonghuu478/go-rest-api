@@ -1,4 +1,4 @@
-package config
+package configs
 
 import (
 	"context"
@@ -13,7 +13,7 @@ var Client *mongo.Client
 
 func init() {
 	// Set client options
-	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+	clientOptions := options.Client().ApplyURI("mongodb://root:1234@localhost:27017/")
 
 	// Connect to MongoDB
 	client, err := mongo.Connect(context.Background(), clientOptions)
